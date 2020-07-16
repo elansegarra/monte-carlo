@@ -10,21 +10,24 @@ def run_monte_carlo(dgp_params, sample_fun, est_fun, num_sims,
                         disable_progress = False):
     '''
         Performs the specified monte carlo simulations (draw a sample, estimate
-        somethign on it, and repeat) and returns the results in a dataframe or
-        dictionary.
+        something on it, and repeat) and returns the results in a dataframe.
 
         :param dict dgp_params: Contains the data generating process parametrization
             that will be passed to sample_fun
         :param function sample_fun: Function which generates a sample
-            Should have 2 arguments: dgp_dict and const_param_dict (and an optional arg called 'seed')
+            Req 2 arguments: dgp_dict and const_param_dict (and an optional arg called 'seed')
+            Returns an object that is parseable by 'est_fun'
         :param function est_fun: Function which applies a transformation to sample
             Should have 2 arguments: sample and const_param_dict
+            Returns an iterable (i.e. dict or list of estimation results)
         :param int num_sims: The number of simulations to conduct
         :param dict const_aux_params: contains variables that are constant across
             estimations (this gets passed to est_fun)
         :param int/list mc_seed: sets a seed for all MC simulations (default is
             random) or can be a list of seeds to use for the sims
         :param bool disable_progress: Indicates whether to disable the progress bar (tqdm)
+
+        :return: pandas.DataFrame where each row is a single simulation result
     '''
 
     # Draw the seeds for each simulation
@@ -52,7 +55,7 @@ def run_monte_carlo(dgp_params, sample_fun, est_fun, num_sims,
             dgp_params['seed'] = seed_list[i]
             mc_sample = sample_fun(dgp_params, const_aux_params)
 
-        # Apply the function (eg. estimate)
+        # Apply the function (eg. estimate things)
         fun_result = est_fun(mc_sample, const_aux_params)
 
         # Save the result (depending on its type)
@@ -62,8 +65,7 @@ def run_monte_carlo(dgp_params, sample_fun, est_fun, num_sims,
             if "sim" not in fun_result:  fun_result['sim'] = i
             if "seed" not in fun_result: fun_result['seed'] = seed_list[i]
         else:
-            warnings.warn("The return of est_fun is not an iterable. Treating as a singleton")
-            # raise TypeException("The return value of 'est_fun' is not recognized. Should be either a list or a dictionary.")
+            warnings.warn("The return of est_fun is not an iterable. Treating as a singleton.")
             fun_result = [i, seed_list[i], fun_result]
         mc_res_list[i] = fun_result
 
@@ -72,7 +74,7 @@ def run_monte_carlo(dgp_params, sample_fun, est_fun, num_sims,
     #     mc_result = pd.DataFrame(data=mc_res_list, columns = ['sim', 'seed']+['res']*(len(mc_res_list[0])-2))
     if isinstance(mc_res_list[0], dict):
         # Reordering the columns so sim and seed are first
-        other_cols = list(mc_res_list[0].keys() - {'sim', 'seed'})
+        other_cols = [col for col in mc_res_list[0].keys() if col not in ['sim', 'seed']]
         mc_result = pd.DataFrame(mc_res_list)[['sim', 'seed']+other_cols].copy()
     else:
         # TODO: Find way to pass names of columns
