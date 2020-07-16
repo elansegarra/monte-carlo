@@ -134,3 +134,58 @@ def stability_check(mc_df, use_col, sample_pcts = [0.9, 0.75, 0.5], num_samples 
         x = 3
 
     return  stability_df
+def outlier_diagnostic(mc_df, cols_to_check, IQR_thresh = 1.5, flag_rows = False,
+                    verbose = False):
+    '''
+        Checks if there are outliers in the estimates across several columns
+        and prints a short summary of the diagnostic results.
+
+        :param pd.DataFrame mc_df: Contains the MC results (returned by run_mc)
+        :param list cols_to_check: Columns in mc_def to check
+        :param float IQR_thresh: Threshhold used to identify an outlier. Outliers
+            are any rows falling outside of (Q1 - IQR_thresh*IQR, Q3 + IQR_thresh*IQR)
+        :param bool/str flag_rows: Indicates whether to add a column which flags
+            outlier rows (if a string is passed, then that will be the column name)
+    '''
+    # Check that all columns exist in the passed df
+    cols_not_found = set(cols_to_check) - set(mc_df.columns)
+    if len(cols_not_found) > 0:
+        warnings.warn(f"Some columns ({cols_not_found}) were not found in the df so they are ignored.")
+        cols_to_check = list(set(cols_to_check) - cols_not_found)
+
+    # Iterate over each column and check for outliers (and collecting along the way)
+    all_outliers = set()
+    low_outlier_cts, high_outlier_cts = [], []
+    for col in cols_to_check:
+        # Calculating first quartile, third quartile, and IQR
+        Q1, Q3 = mc_df[col].quantile(0.25), mc_df[col].quantile(0.75)
+        IQR = Q3 - Q1
+        low_outliers = set(mc_df[mc_df[col] < Q1 - IQR_thresh*IQR].index)
+        low_outlier_cts.append(len(low_outliers))
+        high_outliers = set(mc_df[mc_df[col] > Q3 + IQR_thresh*IQR].index)
+        high_outlier_cts.append(len(high_outliers))
+        # Updating list of all outliers
+        all_outliers = all_outliers | low_outliers
+        all_outliers = all_outliers | high_outliers
+
+    # Printing out verbose results if specified
+    if verbose:
+        outlier_res = pd.DataFrame({'Low_Outliers': low_outlier_cts,
+                                    'High_Outliers': high_outlier_cts},
+                                    index = cols_to_check)
+        print(outlier_res)
+
+    # Printing out very short summary
+    if len(all_outliers) > 0:
+        print(f"A total of {len(all_outliers)} outlier(s) were found across {cols_to_check}.")
+    else:
+        print(f"No outliers found across {cols_to_check}.")
+
+    # Add a column that flags entires (if specified)
+    # TODO: Make flag include which cols were found
+    if isinstance(flag_rows, bool) and flag_rows:
+        mc_df['outlier'] = False
+        mc_df.loc[all_outliers, 'outlier'] = True
+    elif isinstance(flag_rows, str):
+        mc_df[flag_rows] = False
+        mc_df.loc[all_outliers, flag_rows] = True
