@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+from matplotlib import pyplot as plt  # For plotting MC dists
+from statsmodels.nonparametric.kde import KDEUnivariate # Calculating MC dist KDEs
 import inspect  # This allows us to check the arguments of a function
 import warnings
 
@@ -134,6 +136,31 @@ def stability_check(mc_df, use_col, sample_pcts = [0.9, 0.75, 0.5], num_samples 
         x = 3
 
     return  stability_df
+
+def plot_mc_dists(mc_df, beta_cols, beta_col_labels = None,
+                        aux_params = None, bw = "normal_reference"):
+    '''
+        Plots the distribution of the estimates for each of the specified
+        columns (beta_hats). Useful for comparing differences in shapes that may
+        not manifest in the first 2 moments)
+    '''
+    # Setting default labels if none were specified
+    if beta_col_labels is None: beta_col_labels = beta_cols
+
+    # Finding range of values
+    min_x, max_x = mc_df[beta_cols].min().min(), mc_df[beta_cols].max().max()
+    x_grid = np.linspace(min_x, max_x, 200)
+
+    # Estimate Kernel Density for each and plot it
+    f, ax = plt.subplots()
+    for i in range(len(beta_cols)):
+        kde = KDEUnivariate(mc_df[beta_cols[i]])
+        kde.fit(bw=bw)
+        ax.plot(x_grid, kde.evaluate(x_grid), label=beta_col_labels[i]);
+    ax.legend(loc='best');
+
+    return f, ax
+
 def outlier_diagnostic(mc_df, cols_to_check, IQR_thresh = 1.5, flag_rows = False,
                     verbose = False):
     '''
