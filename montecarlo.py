@@ -83,3 +83,54 @@ def run_monte_carlo(dgp_params, sample_fun, est_fun, num_sims,
         mc_result = pd.DataFrame(data=mc_res_list, columns = ['sim', 'seed']+res_cols)
 
     return mc_result
+
+def stability_check(mc_df, use_col, sample_pcts = [0.9, 0.75, 0.5], num_samples = 3,
+                    seed = None, plot_running_mean = False):
+    '''
+        Checks the stability of the current set of simulations to help judge whether
+        more simulations need to be run.
+
+        :param pd.DataFrame mc_df: contains the MC results (output from run_monte_carlo function)
+        :param str use_col: which column should be used for test
+        :param list sample_pcts: list of floats indicating the sample sizes (in percentage) to be drawn
+        :param num_samples int: Number of samples in each percent to draw
+        :param seed int: For replication of stability analysis
+    '''
+
+    # Check that the use_col is in the df
+    if use_col not in mc_df.columns:
+        print(f"Column, {use_col}, not found in the passed MC simulation dataframe.")
+
+    # Calculating the mean and std deviation for entire simulation study
+    mean_100_pct = mc_df[use_col].mean()
+    sd_100_pct = mc_df[use_col].std()
+    total_sims = mc_df.shape[0]
+    print(f"100% of ({total_sims}) Simulations:")
+    print(f"Mean('{use_col}'): {mean_100_pct}")
+    print(f"SDev('{use_col}'): {sd_100_pct}")
+
+    # Setting seed if passed
+    np.random.seed(seed)
+
+    # Calculating means of specified sample sizes
+    stability_res = dict()
+    col_names = []
+    for sample_pct in sample_pcts:
+        col_name = str(round(100*sample_pct))+'pct'
+        sample_size = int(np.round(total_sims*sample_pct))
+        all_samples = [sample_size]
+        for i in range(num_samples):
+            all_samples.append(mc_df[use_col].sample(sample_size).mean())
+        stability_res[col_name] = all_samples
+
+    # Assembling means into a dataframe (with appropriate column names)
+    stability_df = pd.DataFrame(stability_res).T
+    new_cols = {0:'Size'}
+    new_cols.update({col:'Sample_'+str(col) for col in stability_df.columns if col != 0})
+    stability_df.rename(columns = new_cols, inplace=True)
+    stability_df['Size'] = stability_df['Size'].astype(int)
+
+    if plot_running_mean:
+        x = 3
+
+    return  stability_df
