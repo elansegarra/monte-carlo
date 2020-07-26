@@ -57,8 +57,21 @@ def run_monte_carlo(dgp_params, sample_fun, est_fun, num_sims,
             dgp_params['seed'] = seed_list[i]
             mc_sample = sample_fun(dgp_params, const_aux_params)
 
-        # Apply the function (eg. estimate things)
-        fun_result = est_fun(mc_sample, const_aux_params)
+        # Apply the function (eg. estimate things) and catching any exceptions
+        try:
+            fun_result = est_fun(mc_sample, const_aux_params)
+        except:
+            print(f"There was an error estimating for sim {i} with seed {seed_list[i]}.")
+            # Use previous result to create an empty row
+            if isinstance(fun_result, list):
+                fun_result = [i, seed_list[i]] + [None]*(len(fun_result)-2)
+                # TODO: This case has not been tested, so it may not work as I intend
+            elif isinstance(fun_result, dict):
+                fun_result = {key:None for key in fun_result.keys()}
+                fun_result['sim'], fun_result['seed'] = i, seed_list[i]
+            else:
+                warnings.warn("The return of est_fun is not an iterable. Treating as a singleton.")
+                fun_result = [i, seed_list[i], None]
 
         # Save the result (depending on its type)
         if isinstance(fun_result, list):
@@ -70,7 +83,7 @@ def run_monte_carlo(dgp_params, sample_fun, est_fun, num_sims,
             warnings.warn("The return of est_fun is not an iterable. Treating as a singleton.")
             fun_result = [i, seed_list[i], fun_result]
         mc_res_list[i] = fun_result
-
+    
     # Assemble the results into a dataframe
     # if isinstance(mc_res_list[0], list):
     #     mc_result = pd.DataFrame(data=mc_res_list, columns = ['sim', 'seed']+['res']*(len(mc_res_list[0])-2))
