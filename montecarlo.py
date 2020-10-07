@@ -55,6 +55,7 @@ def run_monte_carlo(dgp_params, sample_fun, est_fun, num_sims,
             mc_sample = sample_fun(dgp_params, const_aux_params, seed = seed_list[i])
         else:
             dgp_params['seed'] = seed_list[i]
+            np.random.seed(seed_list[i])
             mc_sample = sample_fun(dgp_params, const_aux_params)
 
         # Apply the function (eg. estimate things) and catching any exceptions
@@ -62,7 +63,7 @@ def run_monte_carlo(dgp_params, sample_fun, est_fun, num_sims,
             fun_result = est_fun(mc_sample, const_aux_params)
         except:
             print(f"There was an error estimating for sim {i} with seed {seed_list[i]}.")
-            # Use previous result to create an empty row (and flag sim faiure)
+            # Use previous result to create an empty row (and flag sim failure)
             if isinstance(fun_result, list):
                 fun_result = [i, seed_list[i], False] + [None]*(len(fun_result)-2)
                 # TODO: This case has not been tested, so it may not work as I intend
